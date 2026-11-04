@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cook-forge - recipe technique and timing analyser</title>
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">&#127859;</span>
+    <div>
+      <h1>cook-forge</h1>
+      <p class="tag">Paste a recipe. Get the real clock, the real technique, and the fixes that matter.</p>
+    </div>
+  </div>
+  <div class="topright">
+    <span id="health" class="pill pill-mute">checking</span>
+    <span class="pill pill-mute">local-first &middot; no API keys</span>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="panel panel-input">
+    <div class="panel-head">
+      <h2>Recipe</h2>
+      <div class="sample-row">
+        <select id="sampleSelect" class="select">
+          <option value="">Load a sample recipe...</option>
+        </select>
+      </div>
+    </div>
+    <textarea id="recipe" spellcheck="false" placeholder="Title: ...&#10;Serves: 4&#10;Time: 45 minutes&#10;&#10;Ingredients:&#10;- 2 lb chicken thighs&#10;- 1 tsp salt&#10;&#10;Steps:&#10;1. Preheat the oven to 425F.&#10;2. Roast for 35 minutes..."></textarea>
+
+    <div class="panel-head"><h2>Your kitchen</h2></div>
+    <label class="field">
+      <span>Equipment you have <em>(comma separated, optional)</em></span>
+      <input id="gear" type="text" placeholder="oven, cast iron skillet, sheet pan, probe thermometer">
+    </label>
+    <div class="field-row">
+      <label class="field">
+        <span>Intent</span>
+        <select id="intent" class="select">
+          <option value="balanced">Balanced</option>
+          <option value="weeknight">Weeknight (fast)</option>
+          <option value="showstopper">Showstopper</option>
+          <option value="beginner">Beginner</option>
+          <option value="batch">Batch for a crowd</option>
+          <option value="entertaining">Entertaining</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Target servings</span>
+        <input id="targetServings" type="number" min="1" step="1" placeholder="auto">
+      </label>
+      <label class="field">
+        <span>Minutes you have</span>
+        <input id="timeAvailable" type="number" min="1" step="5" placeholder="auto">
+      </label>
+    </div>
+    <div class="actions">
+      <button id="analyzeBtn" class="btn btn-primary">Analyse recipe</button>
+      <button id="clearBtn" class="btn">Clear</button>
+      <span id="status" class="status"></span>
+    </div>
+  </section>
+
+  <section class="panel panel-result">
+    <div id="emptyState" class="empty">
+      <h2>Nothing cooked yet</h2>
+      <p>Paste a recipe on the left, or load a sample, and cook-forge will work out the real clock time, flag the technique problems it is going to hit, and give you a fix plan you can actually cook from.</p>
+      <ul class="hints">
+        <li>Recipe times are usually wrong. cook-forge rebuilds the timeline from the steps and overlaps what can overlap.</li>
+        <li>Food safety is checked separately: internal temperatures, raw-meat rinsing, chilling, resting, pan crowding.</li>
+        <li>Your kit list turns the review personal: it tells you when you are missing the wok or the thermometer.</li>
+      </ul>
+    </div>
+
+    <div id="results" class="hidden">
+      <div class="score-head">
+        <div class="score-num"><span id="scoreValue">0</span><small>/100</small></div>
+        <div class="score-meta">
+          <div id="verdict" class="verdict">-</div>
+          <div id="summary" class="summary"></div>
+          <div id="statRow" class="stat-row"></div>
+        </div>
+      </div>
+
+      <div id="axisPills" class="axis-pills"></div>
+      <div id="capNote" class="cap-note hidden"></div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="timeline">Cook-along timeline</button>
+        <button class="tab" data-tab="findings">Findings <span id="findingCount" class="badge">0</span></button>
+        <button class="tab" data-tab="plan">Fix plan</button>
+        <button class="tab" data-tab="shopping">Ingredients &amp; scaling</button>
+        <button class="tab" data-tab="kit">Equipment</button>
+        <button class="tab" data-tab="good">What works</button>
+      </div>
+
+      <div id="tab-timeline" class="tabpane">
+        <div id="timelineList" class="timeline"></div>
+        <div id="makeAheadBox"></div>
+      </div>
+
+      <div id="tab-findings" class="tabpane hidden">
+        <div class="chips">
+          <span class="chip-label">Severity</span>
+          <button class="chip active" data-sev="all">All</button>
+          <button class="chip" data-sev="critical">Critical</button>
+          <button class="chip" data-sev="high">High</button>
+          <button class="chip" data-sev="medium">Medium</button>
+          <button class="chip" data-sev="low">Low</button>
+          <span class="chip-label">Axis</span>
+          <select id="axisFilter" class="select select-sm">
+            <option value="all">All axes</option>
+            <option value="timing">Timing</option>
+            <option value="technique">Technique</option>
+            <option value="sequencing">Sequencing</option>
+            <option value="completeness">Completeness</option>
+            <option value="equipment">Equipment</option>
+          </select>
+        </div>
+        <div id="findingList" class="findings"></div>
+      </div>
+
+      <div id="tab-plan" class="tabpane hidden">
+        <div id="fixPlan" class="fixplan"></div>
+      </div>
+
+      <div id="tab-shopping" class="tabpane hidden">
+        <div id="scaleBox"></div>
+        <div id="ingredientList" class="ingredients"></div>
+      </div>
+
+      <div id="tab-kit" class="tabpane hidden">
+        <div id="kitBox"></div>
+      </div>
+
+      <div id="tab-good" class="tabpane hidden">
+        <div id="strengthList" class="strengths"></div>
+      </div>
+
+      <div class="result-foot">
+        <div class="foot-left">
+          <span id="sessionTag" class="pill pill-mute">not saved</span>
+        </div>
+        <div class="foot-right">
+          <span class="rate-label">How did it turn out?</span>
+          <span id="stars" class="stars">
+            <button data-star="1">&#9733;</button><button data-star="2">&#9733;</button><button data-star="3">&#9733;</button><button data-star="4">&#9733;</button><button data-star="5">&#9733;</button>
+          </span>
+          <input id="notes" type="text" placeholder="notes (optional)">
+          <a id="exportMd" class="btn btn-sm" href="#">Export MD</a>
+          <a id="exportJson" class="btn btn-sm" href="#">Export JSON</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<section class="history-wrap">
+  <div class="panel">
+    <div class="panel-head"><h2>Run history</h2><button id="refreshHistory" class="btn btn-sm">Refresh</button></div>
+    <div id="history" class="history"></div>
+  </div>
+</section>
+
+<footer class="foot">
+  cook-forge &middot; local-first recipe technique and timing analyser &middot; Flask + SQLite + vanilla JS &middot; no API keys, no network calls
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
